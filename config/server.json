@@ -1,0 +1,38 @@
+[
+	{
+		"name": "machine1",
+		"host": "192.168.1.1",
+		"port": "22",
+		"username": "root",
+		"passwd": "123456",
+        "commands": 
+        [
+            {
+                "command": "start",
+                "command_file": "/config/command1"
+            },
+            {
+                "command": "end",
+                "command_file": "/config/command2"
+            }
+        ]
+	},
+	{
+		"name": "machine2",
+		"host": "192.168.1.2",
+		"port": "22",
+		"username": "root",
+		"passwd": "123456",
+        "commands": 
+        [
+            {
+                "command": "start",
+                "command_file": "/config/command1"
+            },
+            {
+                "command": "end",
+                "command_file": "/config/command2"
+            }
+        ]
+	}
+]
