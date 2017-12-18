@@ -77,6 +77,7 @@ func (client *SSHClient) RunCommandFile(commandFile string) error {
 	defer w.Close()
 
 	session.Stdout = output
+	session.Stderr = output
 
 	if err := session.Shell(); err != nil {
 		return err
@@ -147,63 +148,31 @@ func (client *SSHClient) StartShell() error {
 		ssh.TTY_OP_OSPEED: 14400,
 	}
 
-	termWidth, termHeight, err := terminal.GetSize(int(os.Stdin.Fd()))
-	if err := session.RequestPty("xterm", termHeight, termWidth, modes); err != nil {
-		return err
-	}
-
-	w, err := session.StdinPipe()
+	fd := int(os.Stdin.Fd())
+	oldState, err := terminal.MakeRaw(fd)
 	if err != nil {
 		return err
 	}
-	defer w.Close()
+	defer terminal.Restore(fd, oldState)
 
 	session.Stdout = output
+	session.Stderr = output
+	session.Stdin = os.Stdin
 
+	termWidth, termHeight, err := terminal.GetSize(fd)
+	if err != nil {
+		return err
+	}
+
+	if err := session.RequestPty("xterm", termHeight, termWidth, modes); err != nil {
+		return err
+	}
 	if err := session.Shell(); err != nil {
 		return err
 	}
-	defer session.Wait()
 
-	in := make(chan string)
-	errchan := make(chan error)
-	go func() {
-		defer func() {
-			if err := recover(); err != nil {
-				if exitErr, ok := err.(error); ok {
-					errchan <- exitErr
-				}
-			}
-		}()
-		time.Sleep(200 * time.Millisecond)
-		for cmd := range in {
-			n, err := w.Write([]byte(cmd + "\n"))
-			if err != nil {
-				panic(err)
-			} else if n == 0 {
-				panic(errors.New("connect failed"))
-			}
-		}
-	}()
-
-	inputReader := terminal.NewTerminal(os.Stdin, "")
-	for {
-		cmd, err := inputReader.ReadLine()
-		if err != nil {
-			in <- "exit"
-			close(in)
-			return err
-		}
-		cmd = strings.TrimSpace(cmd)
-		select {
-		case in <- cmd:
-			if strings.Compare(cmd, "exit") == 0 {
-				close(in)
-				return nil
-			}
-		case err := <-errchan:
-			close(in)
-			return err
-		}
+	if err := session.Wait(); err != nil {
+		return err
 	}
+	return nil
 }
